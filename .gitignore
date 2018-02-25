@@ -1,3 +1,10 @@
+# Datasets
+*.tar.gz
+*.pickle
+notMNIST_large/
+notMNIST_small/
+.ipynb_checkpoints/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
