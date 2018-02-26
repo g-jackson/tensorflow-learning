@@ -436,4 +436,4 @@ plt.imshow(heatmap, cmap='hot')
 plt.show()
 
 
-# Common Mistakes: C and G, I and J, E and D, E and F
+# Common Mistakes: C and G, I and J, E and C, E and F

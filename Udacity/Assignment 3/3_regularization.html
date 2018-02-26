@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" />
-<title>1_notmnist</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>3_regularization</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 
 <style type="text/css">
@@ -11775,33 +11775,23 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="Deep-Learning">Deep Learning<a class="anchor-link" href="#Deep-Learning">&#182;</a></h1><h2 id="Assignment-1">Assignment 1<a class="anchor-link" href="#Assignment-1">&#182;</a></h2><p>The objective of this assignment is to learn about simple data curation practices, and familiarize you with some of the data we'll be reusing later.</p>
-<p>This notebook uses the <a href="http://yaroslavvb.blogspot.com/2011/09/notmnist-dataset.html">notMNIST</a> dataset to be used with python experiments. This dataset is designed to look like the classic <a href="http://yann.lecun.com/exdb/mnist/">MNIST</a> dataset, while looking a little more like real data: it's a harder task, and the data is a lot less 'clean' than MNIST.</p>
+<h1 id="Deep-Learning">Deep Learning<a class="anchor-link" href="#Deep-Learning">&#182;</a></h1><h2 id="Assignment-3">Assignment 3<a class="anchor-link" href="#Assignment-3">&#182;</a></h2><p>Previously in <code>2_fullyconnected.ipynb</code>, you trained a logistic regression and a neural network model.</p>
+<p>The goal of this assignment is to explore regularization techniques.</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># These are all the modules we&#39;ll be using later. Make sure you can import them</span>
 <span class="c1"># before proceeding further.</span>
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">print_function</span>
-<span class="kn">import</span> <span class="nn">imageio</span>
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">tarfile</span>
-<span class="kn">from</span> <span class="nn">IPython.display</span> <span class="k">import</span> <span class="n">display</span><span class="p">,</span> <span class="n">Image</span>
-<span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="k">import</span> <span class="n">LogisticRegression</span>
-<span class="kn">from</span> <span class="nn">six.moves.urllib.request</span> <span class="k">import</span> <span class="n">urlretrieve</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
 <span class="kn">from</span> <span class="nn">six.moves</span> <span class="k">import</span> <span class="n">cPickle</span> <span class="k">as</span> <span class="n">pickle</span>
-
-<span class="c1"># Config the matplotlib backend as plotting inline in IPython</span>
-<span class="o">%</span><span class="k">matplotlib</span> inline
 </pre></div>
 
 </div>
@@ -11813,54 +11803,30 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>First, we'll download the dataset to our local machine. The data consists of characters rendered in a variety of fonts on a 28x28 image. The labels are limited to 'A' through 'J' (10 classes). The training set has about 500k and the testset 19000 labeled examples. Given these sizes, it should be possible to train models quickly on any machine.</p>
+<p>First reload the data we generated in <code>1_notmnist.ipynb</code>.</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">url</span> <span class="o">=</span> <span class="s1">&#39;https://commondatastorage.googleapis.com/books1000/&#39;</span>
-<span class="n">last_percent_reported</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="n">data_root</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span> <span class="c1"># Change me to store data elsewhere</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">pickle_file</span> <span class="o">=</span> <span class="s1">&#39;notMNIST.pickle&#39;</span>
 
-<span class="k">def</span> <span class="nf">download_progress_hook</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="n">blockSize</span><span class="p">,</span> <span class="n">totalSize</span><span class="p">):</span>
-  <span class="sd">&quot;&quot;&quot;A hook to report the progress of a download. This is mostly intended for users with</span>
-<span class="sd">  slow internet connections. Reports every 5% change in download progress.</span>
-<span class="sd">  &quot;&quot;&quot;</span>
-  <span class="k">global</span> <span class="n">last_percent_reported</span>
-  <span class="n">percent</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">count</span> <span class="o">*</span> <span class="n">blockSize</span> <span class="o">*</span> <span class="mi">100</span> <span class="o">/</span> <span class="n">totalSize</span><span class="p">)</span>
-
-  <span class="k">if</span> <span class="n">last_percent_reported</span> <span class="o">!=</span> <span class="n">percent</span><span class="p">:</span>
-    <span class="k">if</span> <span class="n">percent</span> <span class="o">%</span> <span class="mi">5</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-      <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s%%</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">percent</span><span class="p">)</span>
-      <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
-    <span class="k">else</span><span class="p">:</span>
-      <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
-      <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
-      
-    <span class="n">last_percent_reported</span> <span class="o">=</span> <span class="n">percent</span>
-        
-<span class="k">def</span> <span class="nf">maybe_download</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">expected_bytes</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-  <span class="sd">&quot;&quot;&quot;Download a file if not present, and make sure it&#39;s the right size.&quot;&quot;&quot;</span>
-  <span class="n">dest_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
-  <span class="k">if</span> <span class="n">force</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">dest_filename</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Attempting to download:&#39;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span> 
-    <span class="n">filename</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">urlretrieve</span><span class="p">(</span><span class="n">url</span> <span class="o">+</span> <span class="n">filename</span><span class="p">,</span> <span class="n">dest_filename</span><span class="p">,</span> <span class="n">reporthook</span><span class="o">=</span><span class="n">download_progress_hook</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Download Complete!&#39;</span><span class="p">)</span>
-  <span class="n">statinfo</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">dest_filename</span><span class="p">)</span>
-  <span class="k">if</span> <span class="n">statinfo</span><span class="o">.</span><span class="n">st_size</span> <span class="o">==</span> <span class="n">expected_bytes</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Found and verified&#39;</span><span class="p">,</span> <span class="n">dest_filename</span><span class="p">)</span>
-  <span class="k">else</span><span class="p">:</span>
-    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
-      <span class="s1">&#39;Failed to verify &#39;</span> <span class="o">+</span> <span class="n">dest_filename</span> <span class="o">+</span> <span class="s1">&#39;. Can you get to it with a browser?&#39;</span><span class="p">)</span>
-  <span class="k">return</span> <span class="n">dest_filename</span>
-
-<span class="n">train_filename</span> <span class="o">=</span> <span class="n">maybe_download</span><span class="p">(</span><span class="s1">&#39;notMNIST_large.tar.gz&#39;</span><span class="p">,</span> <span class="mi">247336696</span><span class="p">)</span>
-<span class="n">test_filename</span> <span class="o">=</span> <span class="n">maybe_download</span><span class="p">(</span><span class="s1">&#39;notMNIST_small.tar.gz&#39;</span><span class="p">,</span> <span class="mi">8458043</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+  <span class="n">save</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+  <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;train_dataset&#39;</span><span class="p">]</span>
+  <span class="n">train_labels</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;train_labels&#39;</span><span class="p">]</span>
+  <span class="n">valid_dataset</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;valid_dataset&#39;</span><span class="p">]</span>
+  <span class="n">valid_labels</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;valid_labels&#39;</span><span class="p">]</span>
+  <span class="n">test_dataset</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;test_dataset&#39;</span><span class="p">]</span>
+  <span class="n">test_labels</span> <span class="o">=</span> <span class="n">save</span><span class="p">[</span><span class="s1">&#39;test_labels&#39;</span><span class="p">]</span>
+  <span class="k">del</span> <span class="n">save</span>  <span class="c1"># hint to help gc free up memory</span>
+  <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Training set&#39;</span><span class="p">,</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">train_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Validation set&#39;</span><span class="p">,</span> <span class="n">valid_dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">valid_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Test set&#39;</span><span class="p">,</span> <span class="n">test_dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">test_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -11877,8 +11843,9 @@ div#notebook {
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Found and verified .\notMNIST_large.tar.gz
-Found and verified .\notMNIST_small.tar.gz
+<pre>Training set (200000, 28, 28) (200000,)
+Validation set (10000, 28, 28) (10000,)
+Test set (18724, 28, 28) (18724,)
 </pre>
 </div>
 </div>
@@ -11891,912 +11858,34 @@ Found and verified .\notMNIST_small.tar.gz
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>Extract the dataset from the compressed .tar.gz file.
-This should give you a set of directories, labeled A through J.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[3]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">num_classes</span> <span class="o">=</span> <span class="mi">10</span>
-<span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">133</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">maybe_extract</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-  <span class="n">root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">filename</span><span class="p">)[</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># remove .tar.gz</span>
-  <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">root</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
-    <span class="c1"># You may override by setting force=True.</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> already present - Skipping extraction of </span><span class="si">%s</span><span class="s1">.&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span>
-  <span class="k">else</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Extracting data for </span><span class="si">%s</span><span class="s1">. This may take a while. Please wait.&#39;</span> <span class="o">%</span> <span class="n">root</span><span class="p">)</span>
-    <span class="n">tar</span> <span class="o">=</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
-    <span class="n">tar</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">data_root</span><span class="p">)</span>
-    <span class="n">tar</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-  <span class="n">data_folders</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">root</span><span class="p">))</span>
-    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">d</span><span class="p">))]</span>
-  <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_folders</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_classes</span><span class="p">:</span>
-    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
-      <span class="s1">&#39;Expected </span><span class="si">%d</span><span class="s1"> folders, one per class. Found </span><span class="si">%d</span><span class="s1"> instead.&#39;</span> <span class="o">%</span> <span class="p">(</span>
-        <span class="n">num_classes</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_folders</span><span class="p">)))</span>
-  <span class="nb">print</span><span class="p">(</span><span class="n">data_folders</span><span class="p">)</span>
-  <span class="k">return</span> <span class="n">data_folders</span>
-  
-<span class="n">train_folders</span> <span class="o">=</span> <span class="n">maybe_extract</span><span class="p">(</span><span class="n">train_filename</span><span class="p">)</span>
-<span class="n">test_folders</span> <span class="o">=</span> <span class="n">maybe_extract</span><span class="p">(</span><span class="n">test_filename</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>.\notMNIST_large already present - Skipping extraction of .\notMNIST_large.tar.gz.
-[&#39;.\\notMNIST_large\\A&#39;, &#39;.\\notMNIST_large\\B&#39;, &#39;.\\notMNIST_large\\C&#39;, &#39;.\\notMNIST_large\\D&#39;, &#39;.\\notMNIST_large\\E&#39;, &#39;.\\notMNIST_large\\F&#39;, &#39;.\\notMNIST_large\\G&#39;, &#39;.\\notMNIST_large\\H&#39;, &#39;.\\notMNIST_large\\I&#39;, &#39;.\\notMNIST_large\\J&#39;]
-.\notMNIST_small already present - Skipping extraction of .\notMNIST_small.tar.gz.
-[&#39;.\\notMNIST_small\\A&#39;, &#39;.\\notMNIST_small\\B&#39;, &#39;.\\notMNIST_small\\C&#39;, &#39;.\\notMNIST_small\\D&#39;, &#39;.\\notMNIST_small\\E&#39;, &#39;.\\notMNIST_small\\F&#39;, &#39;.\\notMNIST_small\\G&#39;, &#39;.\\notMNIST_small\\H&#39;, &#39;.\\notMNIST_small\\I&#39;, &#39;.\\notMNIST_small\\J&#39;]
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr>
-<h2 id="Problem-1">Problem 1<a class="anchor-link" href="#Problem-1">&#182;</a></h2><p>Let's take a peek at some of the data to make sure it looks sensible. Each exemplar should be an image of a character A through J rendered in a different font. Display a sample of the images that we just downloaded. Hint: you can use the package IPython.display.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[4]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">for</span> <span class="n">folder</span> <span class="ow">in</span> <span class="n">train_folders</span><span class="p">:</span>
-    <span class="n">image_no</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">folder</span><span class="p">)))</span>
-    <span class="n">image</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">folder</span><span class="p">)[</span><span class="n">image_no</span><span class="p">]</span>
-    <span class="n">image_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span>   
-    <span class="n">display</span><span class="p">(</span><span class="n">Image</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">image_file</span><span class="p">))</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAABmUlEQVR4nG2SMW+OURTHf/c+t9VFKAnCRGhikQibiYGIkurbrZ9Awmo28ElUIphE4gsYBIvEZGCQlHagYqjX89zzMzzv2/K2Z7v3f87v/M/JgT4aBlbVzhUy/0di7xerWv06S+o/x0k2v54SQI4jF3eUZs7XUG1doZkQSfn1iLu2f8TdBuR4hECOQ5fSZGnm2E9DbWMXbuZJtD13yy9AKqWUmamFftTqImWyFD5Z//WbgByn7pgwfzhxtzZgWj/9PdnnF+6p6sPj1Z47oBmNUtPlbth1w/ry8xsqoDe3Xc4NDcPNuXTLTg3Xx34Lt+20+q5w+IfRc1MDGYJ5AHnVTa+9sALBoo42s2Fo9QbT6YpVDdcOkICGZTsNN46S08xHq9o5SA0ZuK4QvF9NkX8/RkAWBRL7vlm19X6ZKdPlTI3Y8luYt2pEnOsne26nVpdSKXLNyCTiwWaS7Elyv4dnAXv6bU9EuD4LXIiR1rVt27bt+OUgZa6m6Js1pZRSyuhwZEHK292oGq4e5Oyf3SQ1XM7zU7HzIgDCpb+87F/rYwYuuAAAAABJRU5ErkJggg==
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAABB0lEQVR4nH3Ru0oEQRAF0FvVM8YG4isyMDISs80FExMFA1PBWKP1C1T8AX9ARDBR0HizxUBFhRUDXyz4YEVwAgXd7e5rKDjVU+mhuql7wb8JrGGJve/itrE+CVGghIEk+bM/DlUYwxiyhZOpaKKo097AzqCJAJD7idUkwmEujYKxNBJvafQ4yBIUQ97aNJCMUMmv5jvGs6JZpo9rtQctb7Jzc986v/gUjWWML+3Lxl1XNNjBR75ujcDB+DOGyKH62WxwBqpzQj96tBgSd6oGt32dTMj5/pWqVqarWhmuaqWowtMq3E0hu+5wz6oMpKCvuWzFJ6KqxcbM+7/KCODLfzy1m8fPKvEXrCqNz5Ow7xUAAAAASUVORK5CYII=
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAAA1UlEQVR4nLWSv0oCUBSHf+fcAylhLjZIg05KL9Aq+Qo+RgTtQeBzNDY0BI3O0ivUFoKEm62B4D3n19Ki3tvmN56P85eDBHTuV8y+S+bi5kx9OLarCybdA/3rU3u47bxO+m0X7ED7XgoY3DRRQsVc4YF06BiwBCTAy7nF6PFleRoAmnNpjz8YfK45e5SnN2Gl7GA4Oq84gMFPq0nP3JzUeioQtUTFP4c41m0DqK5pGgKpvAneyXWjXFTE7i6nX4NW+TUh6M14QNBfuipJth9reOyB5fznFyzieJh1vzYSAAAAAElFTkSuQmCC
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAABcUlEQVR4nHWTMWsUURRGz71vJoXKZlItIkLSrKAY9geILjZibEWwtExhoQhqwMIy+AsUkbSSQrCVQKKNlRDQaFSshKSJccwq6yTzPotVspE3tz2cW3zfvVa2AECAsbPxZmVlPZrXANbVsSft6P1LZUY+cfLc+cOD1wtPByEKIPBQlcoWBhjF3A/p/QWCAT7GnCqVBcFDyIIx/Um17uMAGbf0+58JntPZUKUHOJBxYxRCzlXt7WqWkIA4L7Wr7cnh5v/GWMD2iptJKJZ3gnPlaApG//IWqX0xBTE+QqSXhPABGacazG0wjjeYfTDGG+Aw9QZ4BOBnEooCxGaDeQKLrDWYHTBepaDHydOYf3+eDv7seB159jkd/DWU9edx2C9yOHm83KvhznqAjNujZVvO1FdVmsfBx7i3f2AhOJ13quPdYdOBR6Oneej6lrTaIxhkXdozBLxbZgqtzpmZYrD8eLEKUWAH3kG/vq0uvVjT33f4A7d5mVhZacdLAAAAAElFTkSuQmCC
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAAApUlEQVR4nJ1SOw5CMQxzSAcYQJyEizCxsnOIdz5GBiTEQRBiAhoz8ZoUtRLPUywrPydgA8bzYoYOumIKzEpIZSW6OsQ8iJT9Q0cmtyfcgJmrXk9FyQStHsiPVGUS9FQCu7zlG+bl4RgzNyXMum6bYGo/PUP7ehWHVDm0u4+c6YSpDhmjmJE9/ePYoSysW9aLgq07NuQajfegDE1vQX01HwyETH/qD5IYZCzrFG8ZAAAAAElFTkSuQmCC
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAABYklEQVR4nHWSvUpcURSFv33ONRrxBwXBVxAi2MwrCKZP2kC6PEKwMYUPkCptqjQWIUEbixRpFERiE0wnWAQnBBWdOH/37GVxZ8y9d8avOM1irXX2ZhsQJHu2vra6NDfDA6n18x0QmXj1rS1J8iGSXKcQaJzIlbq9XBWSW0wvPz5NGAFSzweh0wbI2PiapSjj+MuP3/96APjk4YIMWDxVrqTmC/v/GSaa6uV5zhv15bpsEGMMAzLeKyXt8FlJuTaZLDmNqdefdt/Ocy53tVcJlLHiuZVcl3NYVcxCiJbNAHgHVUTlQC1tSMgMIBsruhelAkhnldT+xd6Htgk0jlzbxMc6YRY9dPYrSv/P/hYqOmVXa91yhN/eDSaSXH+f1FJjeRSrbShRElXbUEEYOoM9KgofM1UmA8Jyp3U3Jrg4yeuri6Pno96Oe3GI+jVf+zLhwFT4uWmPxK7sNruS1PreGIm9BzW629duU9mwAAAAAElFTkSuQmCC
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAABFklEQVR4nKWSvy5EURDGf3PuXYVsIqLyp9iIaDf7AioRJV7DY3iAjUrJE+j3CYRSdESn0FhBQe458yl2z7XcG5H4yvnNzDkz8xEIu2fX40o/FTUsfeNkWwZyvhQMgHJz1HOZQUFD5VGv6oDs6e49x6waLMoAniUp6WIVqwsYKSpqWC4AeDh+KJVhES1nTTSGVLclkUiFZwh1IRAoCijLFiQu516Dd2+QJFXaaR2lGQLMANQOpUZl8K3T2SV+g0Z3/Q9vtrQVb/cOWFqbz0mNUSa7lRRa2+Yf/hvab7AV51GWZkxUHzu8TOoPl6OnrHxAO9+fGuz2o36gNlj/UTEmd2+4WoLBlVySxxlNMy14Z++gv9JtMQKfBwi1cVTN/eUAAAAASUVORK5CYII=
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAACQ0lEQVR4nE2STUhUYRSGn/N9914d/ImkQaNMcBCZzECxYiZtKIxMpFKygYIkxUIQiyiSFmaLMmqRpYtatbGFixZhq1r4R0RkSERUFkiWEhU6Fv6Nzr0t7szUt32/9znveziQfIrWSwhowpUY5LTt+V8Ltc75UYodn/1KNt/x70pqgi/EbC2mbHhWgmE+3ErRP1FXm+afMCZ9FVhcb0V2GgmoXfh11YgqVu9FRlOXyypCyvEmjVJlCVN1nPvpE4ORo+DfF3eKk/87akUH2goYmtRrtesfiRHoT0Y96EXhadp44xom704LTcVxnxJPJQJgfCuB6kgajTUoAA2kpgEYxvEvSnh1i4u1riYYuZkuQjPch94WDV/eiwJE0TLlrHShQfDGwtCzcCEX7X7ucl52Xv1+BY0hzU6G0bjYjcuEGucUkPE4D1GMjpV09joVKt7QmDiPNizK6zBV1sLHdm/7SrqbHOqHMAVkXTUWJ51G+PA8AaXviGgAKyAEZ35Y4rU7SFDVoBMDsJedYLkajlIkIzjxvU3Pu3xrNj8wmP0AAvYb7ITotpWMaOj+iV9PNaWTc5JwzoMCcTYt9a80965pCsfQ8bBqCdsG26cji8fkrqySM05ypkPwULpZun1c0XFzTjsp1ntiIe2mXbJeH2hYnB5w7HrdpWxS1makODumbICy/PiZpE/sRglpnwppyYqvyLNf0Fqj+pvQIOpFZunh5Iq2VGUCBd0NaMCg5/aZFJW4EDsvCNmeJ291DFC272xHJF70L+IxqvHpX2K+AAAAAElFTkSuQmCC
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAAA00lEQVR4nO2TPWpCURCFz/w8G9HS9KIgWFho6QoshJQp3EFWmSJVBEGwEWwUREnAxkZ9c1I8jfeBC0jhaW7xzZ3TfCOt5RmiIkhDBpG9usAUIFNKqCKgUh3VXpr9bqX08zT/Wu0OnwAAsf6MSaYDvS4yd1MMDoyCBH/aUHOzW1OGzR2ucS3R4gkw7cxL8HGe8B9DQyKY4E8Cd9dUE/I4hoq5FxNiw8WdBfeTGgSA1N+yRrPX8VIZt7Pl5vsDbeYkI1I185xk8N2Ji0K0dA4KRrBy+QXB0H4U+5v+4gAAAABJRU5ErkJggg==
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAABqUlEQVR4nGVSwU5TURScc8pTFAjBwCsb4wKj/oHRxARISuISomu/QRPYaPQXIKyNblzJlp1NrCaugYWJhoaWB1FqxdTaxva+e8ZFKc/ezupOJmdO5p4B4rVStd2qFB/HEEAw86RYabUPS6sxsFSlJ0nP6iJEsHjOKwUc03kzM+9YjoConPEj3UEO5r0hhz0HuL2M72Jys0kjaY2NCYhgfKNhJI3NzUkRxvNzeat9/VAXAhDOzN+M9WS/WBOo4gy9l0Z9PqICqAgAGgEAwonbN2ZR2//0WzAIwcVnSS/Kt+ejCPGa3qfOpd74JtSihJ3Um/n0r9WGbFfqNJI0/ng4tJRXHy1dm5LT5N2raihixBPReK7TMmggCogLlyL3x0M1HZpceHB3eqr762B7K5Fg7vJL9uB5uhzkwFM6572ZT7v8OaeDchM5GEhS0OiGSV50erbGz3fw31JRgdmt+/dmr3TrX7ZLzUxTDU00mxROL1yPcVL++F0I1f4JAQjG1htndVkfQ5h+i9Y/1dvwY6JKVsmDaFATFI76ZU4Koa0gv1ZK2q3D96v5c+0fpUgXP71SwDkAAAAASUVORK5CYII=
-"
->
-</div>
-
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Now let's load the data in a more manageable format. Since, depending on your computer setup you might not be able to fit it all in memory, we'll load each class into a separate dataset, store them on disk and curate them independently. Later we'll merge them into a single dataset of manageable size.</p>
-<p>We'll convert the entire dataset into a 3D array (image index, x, y) of floating point values, normalized to have approximately zero mean and standard deviation ~0.5 to make training easier down the road.</p>
-<p>A few images might not be readable, we'll just skip them.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[5]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">image_size</span> <span class="o">=</span> <span class="mi">28</span>  <span class="c1"># Pixel width and height.</span>
-<span class="n">pixel_depth</span> <span class="o">=</span> <span class="mf">255.0</span>  <span class="c1"># Number of levels per pixel.</span>
-
-<span class="k">def</span> <span class="nf">load_letter</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">min_num_images</span><span class="p">):</span>
-  <span class="sd">&quot;&quot;&quot;Load the data for a single letter label.&quot;&quot;&quot;</span>
-  <span class="n">image_files</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
-  <span class="n">dataset</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">image_files</span><span class="p">),</span> <span class="n">image_size</span><span class="p">,</span> <span class="n">image_size</span><span class="p">),</span>
-                         <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-  <span class="nb">print</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
-  <span class="n">num_images</span> <span class="o">=</span> <span class="mi">0</span>
-  <span class="k">for</span> <span class="n">image</span> <span class="ow">in</span> <span class="n">image_files</span><span class="p">:</span>
-    <span class="n">image_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span>
-    <span class="k">try</span><span class="p">:</span>
-      <span class="n">image_data</span> <span class="o">=</span> <span class="p">(</span><span class="n">imageio</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">image_file</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">-</span> 
-                    <span class="n">pixel_depth</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">pixel_depth</span>
-      <span class="k">if</span> <span class="n">image_data</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">image_size</span><span class="p">,</span> <span class="n">image_size</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Unexpected image shape: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">image_data</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
-      <span class="n">dataset</span><span class="p">[</span><span class="n">num_images</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">image_data</span>
-      <span class="n">num_images</span> <span class="o">=</span> <span class="n">num_images</span> <span class="o">+</span> <span class="mi">1</span>
-    <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Could not read:&#39;</span><span class="p">,</span> <span class="n">image_file</span><span class="p">,</span> <span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="s1">&#39;- it</span><span class="se">\&#39;</span><span class="s1">s ok, skipping.&#39;</span><span class="p">)</span>
-    
-  <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">num_images</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
-  <span class="k">if</span> <span class="n">num_images</span> <span class="o">&lt;</span> <span class="n">min_num_images</span><span class="p">:</span>
-    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Many fewer images than expected: </span><span class="si">%d</span><span class="s1"> &lt; </span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span>
-                    <span class="p">(</span><span class="n">num_images</span><span class="p">,</span> <span class="n">min_num_images</span><span class="p">))</span>
-    
-  <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Full dataset tensor:&#39;</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-  <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Mean:&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dataset</span><span class="p">))</span>
-  <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Standard deviation:&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dataset</span><span class="p">))</span>
-  <span class="k">return</span> <span class="n">dataset</span>
-        
-<span class="k">def</span> <span class="nf">maybe_pickle</span><span class="p">(</span><span class="n">data_folders</span><span class="p">,</span> <span class="n">min_num_images_per_class</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-  <span class="n">dataset_names</span> <span class="o">=</span> <span class="p">[]</span>
-  <span class="k">for</span> <span class="n">folder</span> <span class="ow">in</span> <span class="n">data_folders</span><span class="p">:</span>
-    <span class="n">set_filename</span> <span class="o">=</span> <span class="n">folder</span> <span class="o">+</span> <span class="s1">&#39;.pickle&#39;</span>
-    <span class="n">dataset_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">set_filename</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">set_filename</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
-      <span class="c1"># You may override by setting force=True.</span>
-      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> already present - Skipping pickling.&#39;</span> <span class="o">%</span> <span class="n">set_filename</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Pickling </span><span class="si">%s</span><span class="s1">.&#39;</span> <span class="o">%</span> <span class="n">set_filename</span><span class="p">)</span>
-      <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_letter</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">min_num_images_per_class</span><span class="p">)</span>
-      <span class="k">try</span><span class="p">:</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">set_filename</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-          <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">pickle</span><span class="o">.</span><span class="n">HIGHEST_PROTOCOL</span><span class="p">)</span>
-      <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Unable to save data to&#39;</span><span class="p">,</span> <span class="n">set_filename</span><span class="p">,</span> <span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-  
-  <span class="k">return</span> <span class="n">dataset_names</span>
-
-<span class="n">train_datasets</span> <span class="o">=</span> <span class="n">maybe_pickle</span><span class="p">(</span><span class="n">train_folders</span><span class="p">,</span> <span class="mi">45000</span><span class="p">)</span>
-<span class="n">test_datasets</span> <span class="o">=</span> <span class="n">maybe_pickle</span><span class="p">(</span><span class="n">test_folders</span><span class="p">,</span> <span class="mi">1800</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>.\notMNIST_large\A.pickle already present - Skipping pickling.
-.\notMNIST_large\B.pickle already present - Skipping pickling.
-.\notMNIST_large\C.pickle already present - Skipping pickling.
-.\notMNIST_large\D.pickle already present - Skipping pickling.
-.\notMNIST_large\E.pickle already present - Skipping pickling.
-.\notMNIST_large\F.pickle already present - Skipping pickling.
-.\notMNIST_large\G.pickle already present - Skipping pickling.
-.\notMNIST_large\H.pickle already present - Skipping pickling.
-.\notMNIST_large\I.pickle already present - Skipping pickling.
-.\notMNIST_large\J.pickle already present - Skipping pickling.
-.\notMNIST_small\A.pickle already present - Skipping pickling.
-.\notMNIST_small\B.pickle already present - Skipping pickling.
-.\notMNIST_small\C.pickle already present - Skipping pickling.
-.\notMNIST_small\D.pickle already present - Skipping pickling.
-.\notMNIST_small\E.pickle already present - Skipping pickling.
-.\notMNIST_small\F.pickle already present - Skipping pickling.
-.\notMNIST_small\G.pickle already present - Skipping pickling.
-.\notMNIST_small\H.pickle already present - Skipping pickling.
-.\notMNIST_small\I.pickle already present - Skipping pickling.
-.\notMNIST_small\J.pickle already present - Skipping pickling.
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Merge and prune the training data as needed. Depending on your computer setup, you might not be able to fit it all in memory, and you can tune <code>train_size</code> as needed. The labels will be stored into a separate array of integers 0 through 9.</p>
-<p>Also create a validation dataset for hyperparameter tuning.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[6]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">make_arrays</span><span class="p">(</span><span class="n">nb_rows</span><span class="p">,</span> <span class="n">img_size</span><span class="p">):</span>
-  <span class="k">if</span> <span class="n">nb_rows</span><span class="p">:</span>
-    <span class="n">dataset</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">((</span><span class="n">nb_rows</span><span class="p">,</span> <span class="n">img_size</span><span class="p">,</span> <span class="n">img_size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-    <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span><span class="n">nb_rows</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-  <span class="k">else</span><span class="p">:</span>
-    <span class="n">dataset</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
-  <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">labels</span>
-
-<span class="k">def</span> <span class="nf">merge_datasets</span><span class="p">(</span><span class="n">pickle_files</span><span class="p">,</span> <span class="n">train_size</span><span class="p">,</span> <span class="n">valid_size</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-  <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pickle_files</span><span class="p">)</span>
-  <span class="n">valid_dataset</span><span class="p">,</span> <span class="n">valid_labels</span> <span class="o">=</span> <span class="n">make_arrays</span><span class="p">(</span><span class="n">valid_size</span><span class="p">,</span> <span class="n">image_size</span><span class="p">)</span>
-  <span class="n">train_dataset</span><span class="p">,</span> <span class="n">train_labels</span> <span class="o">=</span> <span class="n">make_arrays</span><span class="p">(</span><span class="n">train_size</span><span class="p">,</span> <span class="n">image_size</span><span class="p">)</span>
-  <span class="n">vsize_per_class</span> <span class="o">=</span> <span class="n">valid_size</span> <span class="o">//</span> <span class="n">num_classes</span>
-  <span class="n">tsize_per_class</span> <span class="o">=</span> <span class="n">train_size</span> <span class="o">//</span> <span class="n">num_classes</span>
-    
-  <span class="n">start_v</span><span class="p">,</span> <span class="n">start_t</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
-  <span class="n">end_v</span><span class="p">,</span> <span class="n">end_t</span> <span class="o">=</span> <span class="n">vsize_per_class</span><span class="p">,</span> <span class="n">tsize_per_class</span>
-  <span class="n">end_l</span> <span class="o">=</span> <span class="n">vsize_per_class</span><span class="o">+</span><span class="n">tsize_per_class</span>
-  <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">pickle_file</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pickle_files</span><span class="p">):</span>       
-    <span class="k">try</span><span class="p">:</span>
-      <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">letter_set</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="c1"># let&#39;s shuffle the letters to have random validation and training set</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">letter_set</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">valid_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-          <span class="n">valid_letter</span> <span class="o">=</span> <span class="n">letter_set</span><span class="p">[:</span><span class="n">vsize_per_class</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
-          <span class="n">valid_dataset</span><span class="p">[</span><span class="n">start_v</span><span class="p">:</span><span class="n">end_v</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">valid_letter</span>
-          <span class="n">valid_labels</span><span class="p">[</span><span class="n">start_v</span><span class="p">:</span><span class="n">end_v</span><span class="p">]</span> <span class="o">=</span> <span class="n">label</span>
-          <span class="n">start_v</span> <span class="o">+=</span> <span class="n">vsize_per_class</span>
-          <span class="n">end_v</span> <span class="o">+=</span> <span class="n">vsize_per_class</span>
-                    
-        <span class="n">train_letter</span> <span class="o">=</span> <span class="n">letter_set</span><span class="p">[</span><span class="n">vsize_per_class</span><span class="p">:</span><span class="n">end_l</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
-        <span class="n">train_dataset</span><span class="p">[</span><span class="n">start_t</span><span class="p">:</span><span class="n">end_t</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">train_letter</span>
-        <span class="n">train_labels</span><span class="p">[</span><span class="n">start_t</span><span class="p">:</span><span class="n">end_t</span><span class="p">]</span> <span class="o">=</span> <span class="n">label</span>
-        <span class="n">start_t</span> <span class="o">+=</span> <span class="n">tsize_per_class</span>
-        <span class="n">end_t</span> <span class="o">+=</span> <span class="n">tsize_per_class</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Unable to process data from&#39;</span><span class="p">,</span> <span class="n">pickle_file</span><span class="p">,</span> <span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-      <span class="k">raise</span>
-    
-  <span class="k">return</span> <span class="n">valid_dataset</span><span class="p">,</span> <span class="n">valid_labels</span><span class="p">,</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="n">train_labels</span>
-            
-            
-<span class="n">train_size</span> <span class="o">=</span> <span class="mi">200000</span>
-<span class="n">valid_size</span> <span class="o">=</span> <span class="mi">10000</span>
-<span class="n">test_size</span> <span class="o">=</span> <span class="mi">10000</span>
-
-<span class="n">valid_dataset</span><span class="p">,</span> <span class="n">valid_labels</span><span class="p">,</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="n">train_labels</span> <span class="o">=</span> <span class="n">merge_datasets</span><span class="p">(</span>
-  <span class="n">train_datasets</span><span class="p">,</span> <span class="n">train_size</span><span class="p">,</span> <span class="n">valid_size</span><span class="p">)</span>
-<span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">test_dataset</span><span class="p">,</span> <span class="n">test_labels</span> <span class="o">=</span> <span class="n">merge_datasets</span><span class="p">(</span><span class="n">test_datasets</span><span class="p">,</span> <span class="n">test_size</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Training:&#39;</span><span class="p">,</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">train_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Validation:&#39;</span><span class="p">,</span> <span class="n">valid_dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">valid_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Testing:&#39;</span><span class="p">,</span> <span class="n">test_dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">test_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>Training: (200000, 28, 28) (200000,)
-Validation: (10000, 28, 28) (10000,)
-Testing: (10000, 28, 28) (10000,)
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr>
-<h2 id="Problem-2">Problem 2<a class="anchor-link" href="#Problem-2">&#182;</a></h2><p>Let's verify that the data still looks good. Displaying a sample of the labels and images from the ndarray. Hint: you can use matplotlib.pyplot.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[7]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">warnings</span>
-<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-<span class="n">sample</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">))</span>
-<span class="n">imageio</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s1">&#39;test.jpg&#39;</span><span class="p">,</span> <span class="n">train_dataset</span><span class="p">[</span><span class="n">sample</span><span class="p">])</span> <span class="c1">#Not sure how to generate image without warning</span>
-<span class="nb">print</span><span class="p">(</span><span class="nb">chr</span><span class="p">(</span><span class="n">train_labels</span><span class="p">[</span><span class="n">sample</span><span class="p">]</span> <span class="o">+</span> <span class="mi">65</span><span class="p">))</span>
-<span class="n">display</span><span class="p">(</span><span class="n">Image</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s1">&#39;test.jpg&#39;</span><span class="p">))</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>(28, 28)
-E
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_jpeg output_subarea ">
-<img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAAcABwBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/APAUYo6uuMqcjIz+le5+P7v/AIRb4Y+Fz9h0yPxDqIE09wunwBwgXcRgJgcug6djXlQ8aa4P+W1r/wCAMH/xFb2reP8AU7S30q302+iytijXLQxqgaZmZzkKAMgMqnj+Gub8IaMfEPi/SdJC5W5uUR/ZM5Y/98g16Z8b5LTW/HItRr2m2senW6wCCUTZVj8zfdjYd1HB7Vwdxolhpngu51E3tnqFxdXaWts0HmDygi75D86rzzGOh4Y1ytet/ADS45PF1/rtzgW2k2bOXI4Vm4z/AN8h68013VJNb1/UNUlJ33dw8xz23MSB+A4qbT4NQ12FdOjlQW1jFPdkuMLGoXc7EgZJO1QPfArJr648MeBdH8OeErzSLT7S8Gqri6klk/eEFduAygYGCfzNcpefCXwhb52WMxx/euX/AMa5/wAZeHtJ8K/DPULjR7MW899cw2k8hkd2MQJfaNxOMsi5x1xXiVf/2Q==
-"
->
-</div>
-
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr>
-<h2 id="Problem-3">Problem 3<a class="anchor-link" href="#Problem-3">&#182;</a></h2><p>Another check: we expect the data to be balanced across classes. Verify that.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[8]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">train_labels</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt output_prompt">Out[8]:</div>
-
-
-
-
-<div class="output_text output_subarea output_execute_result">
-<pre>(array([20000., 20000., 20000., 20000., 20000., 20000., 20000., 20000.,
-        20000., 20000.]),
- array([0. , 0.9, 1.8, 2.7, 3.6, 4.5, 5.4, 6.3, 7.2, 8.1, 9. ]),
- &lt;a list of 10 Patch objects&gt;)</pre>
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,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
-"
->
-</div>
-
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Next, we'll randomize the data. It's important to have the labels well shuffled for the training and test distributions to match.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[9]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">randomize</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
-  <span class="n">permutation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-  <span class="n">shuffled_dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="n">permutation</span><span class="p">,:,:]</span>
-  <span class="n">shuffled_labels</span> <span class="o">=</span> <span class="n">labels</span><span class="p">[</span><span class="n">permutation</span><span class="p">]</span>
-  <span class="k">return</span> <span class="n">shuffled_dataset</span><span class="p">,</span> <span class="n">shuffled_labels</span>
-<span class="n">train_dataset</span><span class="p">,</span> <span class="n">train_labels</span> <span class="o">=</span> <span class="n">randomize</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">train_labels</span><span class="p">)</span>
-<span class="n">test_dataset</span><span class="p">,</span> <span class="n">test_labels</span> <span class="o">=</span> <span class="n">randomize</span><span class="p">(</span><span class="n">test_dataset</span><span class="p">,</span> <span class="n">test_labels</span><span class="p">)</span>
-<span class="n">valid_dataset</span><span class="p">,</span> <span class="n">valid_labels</span> <span class="o">=</span> <span class="n">randomize</span><span class="p">(</span><span class="n">valid_dataset</span><span class="p">,</span> <span class="n">valid_labels</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr>
-<h2 id="Problem-4">Problem 4<a class="anchor-link" href="#Problem-4">&#182;</a></h2><p>Convince yourself that the data is still good after shuffling!</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[10]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">warnings</span>
-<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
-<span class="n">sample</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">))</span>
-<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
-    <span class="n">sample</span> <span class="o">+=</span> <span class="mi">1</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;sample number:</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">sample</span><span class="p">)</span>
-    <span class="n">imageio</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s1">&#39;test.jpg&#39;</span><span class="p">,</span> <span class="n">train_dataset</span><span class="p">[</span><span class="n">sample</span><span class="p">])</span>
-    <span class="nb">print</span><span class="p">(</span><span class="nb">chr</span><span class="p">(</span><span class="n">train_labels</span><span class="p">[</span><span class="n">sample</span><span class="p">]</span> <span class="o">+</span> <span class="mi">65</span><span class="p">))</span>
-    <span class="n">display</span><span class="p">(</span><span class="n">Image</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s1">&#39;test.jpg&#39;</span><span class="p">))</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>sample number:187607
-G
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_jpeg output_subarea ">
-<img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAAcABwBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/AIfhv8CrTUtKtNb8TzO8dzGs0NjC20bCMguw55HOBj69q7XxP478F/Cox6TZ6SjXgQN9msolXYp6F3Pc/ia43xF8cfDHiLwtqNpN4elOoSQMluLiKOWNXIwG3dRjOenavAq+5vCMZi8GaFGeq6fbr+Ua188fG3QLjUvi/DZaXH9pvtQtImESsAd43LjJIA+VAea50/Bf4gBd3/CPsfYXMOf/AEOoG+EPj1Dg+G7n8JIz/Jq+tvD+o6dqmgWV3pM6TWTwqInU9gMYPoR0I7V89fEax8aeFPipceLLW1M6zMfsdykHnIi7doUjHysB6/UV7d8O9U1vWPBdle+ILWW31Fy28SRiMuM/KwUYwCMdeePeuT+Jnj+68K+JLexgB2yWizHHqXcf+y187+FfGuveDr37Ro188SsQZIG+aKT/AHlPH49fevsXwxqs+t6BaX9ykaSzRq7CMEKCR2yTWf498R3nhjwzc6jYxwPNGhKiZSVz+BFfHeu69qXiTV5tU1W5a4uperHgAdgAOAB6Cv/Z
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>sample number:187608
-A
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_jpeg output_subarea ">
-<img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAAcABwBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/APn+ut8PXaeF9MGsz28c8t9IbWOGQZDWw/15/wCBDEYI9ZKxde0saRq81tE5ltjiS3lP/LSJhuRvrgjPocjtWZVvTNPm1XU7axtwPNnkCKT0Ge59h1PsK6vxD4eu7/UQlld6OLC1jW3tQdYtBmNf4j+86scsfc0mqaJdSeDI5biawlu9KfYBbX0NwzWznPIjZiAjk8nA+euKrotK/wCJR4evNXbi4ut1lZ+oyAZXH0Uhfq4rna1NA1NNK1aKaZS9q4MVzGP44mGHGPXHI9wKi1nTW0jV7iyZw6xt+7kXkSIRlWHqCpB/Gr/ilzHdWNiny29tYW/lqPWSJZXJ9SWkbn0wO1YNFes+DfDWm+LvDVvd6tG8k9qTaI6NgmNTlc+pG7A9gB2r/9k=
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>sample number:187609
-G
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_jpeg output_subarea ">
-<img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAAcABwBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/APOfhr8NL7x/qLsZGtdKt2AuLnGST/cT1bH4AcnsD0Xirxpongq8k0L4f6bZwyWx8u41iWNZpncdQjMDwD36Z6ADk5fhn4o6zc6/aWfii5j1jRrmZYrmC+iR1VWOCwJGQRnP4VsfE248KeEvFg0fSfDOmyxRWyNIzBmO9iT1z/dK16Vr234YfAo21l+7vPs6wB14Jnl+++fUZYj6CvlWuj0jwF4p17T0v9L0W6urRyVWWMDBIOD39ax9S0280fUJrC/gaC6hOJImIJU4zg4719D/ABY1NfGXwQsNc00+ZCLiGe4C8+X8rIwP0dgK+ba+jvgBb3GleBdc1qYSvbvKWiiGTnykJYqPUk4/4DXzzfXcuoahc3k5zNcStLIfVmJJ/U1veEvGus+FZJbexlilsbv5Lmyuk8yCYHg7l+ncYNe+aR8HfBOr6Xb6vNpckTyp5jW8NzIIs+gBJYD8a4zx78TNe8L+X4b8Px2Wl2McexGtoSHRfQEkgfXGe+a8RJLEkkknkk96/9k=
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>sample number:187610
-A
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_jpeg output_subarea ">
-<img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAAcABwBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/AOU+An/CP/8ACcSLq/lm9aHbp4mAKGQn5sZ43Y6fj3xX0nd+FvD1+rLd6Hps+4YJktUJ/PFfKHxX8GReCvGktpZqw0+5jFxagnOxSSCme+CD+GK4au3+EeinXPiZo8RXMVvL9rkPoI/mH/jwUfjX034vs/F15qugL4cvYrWzjuTJqLORlowVwoBBJyN/A9q4z9oLwvJq3hK21q2j3zaXITLgc+S+AT+BCn6Zr5gr6s+Cvw9Twt4fXWL1AdW1GIMe/kwnBVB7ngn8B2rsPFfjjRPBgsf7YllT7bKY4vLiL9MZJx0AyPfnpW7c20N7aS21xGssEyGORGHDKRgg/UGvjnxz8PNS8JeKbjTY4ZLm1P722lQZ3REnGfQjBB+ldjpXxy8WWXhy1h8rTZ2hTyxLLC5dgvAJw4Gce1cH4v8AH2u+NdRtrvVZolNqCIIoE2pGcgkgEk5OByT2FeheGPjp4umMdrdJp1zhlQyyQMHOe52sBn8KpfGvxPqS+PVijdI0jsYQAq9c5Y5z7sf0r//Z
-"
->
-</div>
-
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>sample number:187611
-I
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_jpeg output_subarea ">
-<img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAAcABwBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/APn+vbv2evCNlqt9qOvahbJP9iKRWqyLuVZDks2D3A24/wB6vdvEHhDQPFFo1vq+l29wCMCQriRPdXHI/Ovmnxr8ILrw94he10/UbOWzkQSwm6uUikVSSMMD1xg8jg/pXm1vbzXdzFbW8TyzSuEjjQZLMTgAD1r7I+GPg5vBPgy306fab2VjcXRXkCRgOAe+AAM+1HxD+IWn+AdG8+bE+oTgi1tQeXI/ib0Udz+Ar5E13XdR8SaxcarqlwZ7qdssx6AdlA7AdAK9/wDgf8MhplrF4q1mD/TplzZQuP8AUoR98j+8w6eg+vHtx4FfIPxq1KfUPijqiSsSlpst4lz91QoP82J/GvPq+m/gx8Qdd8T28lhqzwz/AGXCLPsIkYY/iIOD9cVf+KPxI1rwcgXTILJi3G6eNmI/JhXzLrmtXviLWrrVtQdXu7l98hVdozgAYH0ArPr/2Q==
-"
->
-</div>
-
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Finally, let's save the data for later reuse:</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[11]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">pickle_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="s1">&#39;notMNIST.pickle&#39;</span><span class="p">)</span>
-
-<span class="k">try</span><span class="p">:</span>
-  <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span>
-  <span class="n">save</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;train_dataset&#39;</span><span class="p">:</span> <span class="n">train_dataset</span><span class="p">,</span>
-    <span class="s1">&#39;train_labels&#39;</span><span class="p">:</span> <span class="n">train_labels</span><span class="p">,</span>
-    <span class="s1">&#39;valid_dataset&#39;</span><span class="p">:</span> <span class="n">valid_dataset</span><span class="p">,</span>
-    <span class="s1">&#39;valid_labels&#39;</span><span class="p">:</span> <span class="n">valid_labels</span><span class="p">,</span>
-    <span class="s1">&#39;test_dataset&#39;</span><span class="p">:</span> <span class="n">test_dataset</span><span class="p">,</span>
-    <span class="s1">&#39;test_labels&#39;</span><span class="p">:</span> <span class="n">test_labels</span><span class="p">,</span>
-    <span class="p">}</span>
-  <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">save</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">pickle</span><span class="o">.</span><span class="n">HIGHEST_PROTOCOL</span><span class="p">)</span>
-  <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-  <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Unable to save data to&#39;</span><span class="p">,</span> <span class="n">pickle_file</span><span class="p">,</span> <span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-  <span class="k">raise</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[12]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">statinfo</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Compressed pickle size:&#39;</span><span class="p">,</span> <span class="n">statinfo</span><span class="o">.</span><span class="n">st_size</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>Compressed pickle size: 690800506
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr>
-<h2 id="Problem-5">Problem 5<a class="anchor-link" href="#Problem-5">&#182;</a></h2><p>By construction, this dataset might contain a lot of overlapping samples, including training data that's also contained in the validation and test set! Overlap between training and test can skew the results if you expect to use your model in an environment where there is never an overlap, but are actually ok if you expect to see training samples recur when you use it.
-Measure how much overlap there is between training, validation and test samples.</p>
-<p>Optional questions:</p>
+<p>Reformat into a shape that's more adapted to the models we're going to train:</p>
 <ul>
-<li>What about near duplicates between datasets? (images that are almost identical)</li>
-<li>Create a sanitized validation and test set, and compare your accuracy on those in subsequent assignments.</li>
+<li>data as a flat matrix,</li>
+<li>labels as float 1-hot encodings.</li>
 </ul>
-<hr>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">dedupe</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">),</span><span class="nb">len</span><span class="p">(</span><span class="n">dedupe</span><span class="p">))</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">image_size</span> <span class="o">=</span> <span class="mi">28</span>
+<span class="n">num_labels</span> <span class="o">=</span> <span class="mi">10</span>
+
+<span class="k">def</span> <span class="nf">reformat</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+  <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">image_size</span> <span class="o">*</span> <span class="n">image_size</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+  <span class="c1"># Map 1 to [0.0, 1.0, 0.0 ...], 2 to [0.0, 0.0, 1.0 ...]</span>
+  <span class="n">labels</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_labels</span><span class="p">)</span> <span class="o">==</span> <span class="n">labels</span><span class="p">[:,</span><span class="kc">None</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">labels</span>
+<span class="n">train_dataset</span><span class="p">,</span> <span class="n">train_labels</span> <span class="o">=</span> <span class="n">reformat</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">train_labels</span><span class="p">)</span>
+<span class="n">valid_dataset</span><span class="p">,</span> <span class="n">valid_labels</span> <span class="o">=</span> <span class="n">reformat</span><span class="p">(</span><span class="n">valid_dataset</span><span class="p">,</span> <span class="n">valid_labels</span><span class="p">)</span>
+<span class="n">test_dataset</span><span class="p">,</span> <span class="n">test_labels</span> <span class="o">=</span> <span class="n">reformat</span><span class="p">(</span><span class="n">test_dataset</span><span class="p">,</span> <span class="n">test_labels</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Training set&#39;</span><span class="p">,</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">train_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Validation set&#39;</span><span class="p">,</span> <span class="n">valid_dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">valid_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Test set&#39;</span><span class="p">,</span> <span class="n">test_dataset</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">test_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -12813,11 +11902,28 @@ Measure how much overlap there is between training, validation and test samples.
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>200000 187316
+<pre>Training set (200000, 784) (200000, 10)
+Validation set (10000, 784) (10000, 10)
+Test set (18724, 784) (18724, 10)
 </pre>
 </div>
 </div>
 
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">accuracy</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+  <span class="k">return</span> <span class="p">(</span><span class="mf">100.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+          <span class="o">/</span> <span class="n">predictions</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</pre></div>
+
+</div>
 </div>
 </div>
 
@@ -12827,122 +11933,50 @@ Measure how much overlap there is between training, validation and test samples.
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr>
-<h2 id="Problem-6">Problem 6<a class="anchor-link" href="#Problem-6">&#182;</a></h2><p>Let's get an idea of what an off-the-shelf classifier can give you on this data. It's always good to check that there is something to learn, and that it's a problem that is not so trivial that a canned solution solves it.</p>
-<p>Train a simple model on this data using 50, 100, 1000 and 5000 training samples. Hint: you can use the LogisticRegression model from sklearn.linear_model.</p>
-<h2 id="Optional-question:-train-an-off-the-shelf-model-on-all-the-data!">Optional question: train an off-the-shelf model on all the data!<a class="anchor-link" href="#Optional-question:-train-an-off-the-shelf-model-on-all-the-data!">&#182;</a></h2>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[72]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="k">import</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">r2_score</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Reshaping for LR function&quot;</span><span class="p">)</span>
-<span class="n">nsamples</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">ny</span> <span class="o">=</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">shape</span>
-<span class="n">d2_train_dataset</span> <span class="o">=</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nsamples</span><span class="p">,</span><span class="n">nx</span><span class="o">*</span><span class="n">ny</span><span class="p">))</span>
-
-<span class="n">nsamples</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">ny</span> <span class="o">=</span> <span class="n">test_dataset</span><span class="o">.</span><span class="n">shape</span>
-<span class="n">d2_test_dataset</span> <span class="o">=</span> <span class="n">test_dataset</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nsamples</span><span class="p">,</span><span class="n">nx</span><span class="o">*</span><span class="n">ny</span><span class="p">))</span>
-
-
-<span class="n">lr</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">fit_intercept</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">n_jobs</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Fitting to function&quot;</span><span class="p">)</span>
-<span class="n">trainingsize</span> <span class="o">=</span> <span class="mi">5000</span>
-<span class="n">fit</span>  <span class="o">=</span> <span class="n">lr</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">d2_train_dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">trainingsize</span><span class="p">],</span> <span class="n">train_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">trainingsize</span><span class="p">])</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Predicting values for test set&quot;</span><span class="p">)</span>
-<span class="n">predicted</span> <span class="o">=</span> <span class="n">lr</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">d2_test_dataset</span><span class="p">)</span>
-<span class="c1"># The coefficients</span>
-<span class="c1">#print(predicted)</span>
-<span class="c1">#print(&#39;Coefficients: \n&#39;, lr.coef_)</span>
-<span class="c1"># The mean squared error</span>
-<span class="n">mse</span> <span class="o">=</span> <span class="n">mean_squared_error</span><span class="p">(</span><span class="n">test_labels</span><span class="p">,</span> <span class="n">predicted</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mean squared error:&quot;</span><span class="p">,</span><span class="n">mse</span><span class="p">)</span>
-<span class="c1"># Explained variance score: 1 is perfect prediction</span>
-<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Variance score: </span><span class="si">%.2f</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">test_labels</span><span class="p">,</span> <span class="n">predicted</span><span class="p">))</span>
-
-<span class="c1">#print(np.shape(predicted), np.shape(test_labels))</span>
-</pre></div>
+<h2 id="Problem-1">Problem 1<a class="anchor-link" href="#Problem-1">&#182;</a></h2><p>Introduce and tune L2 regularization for both logistic and neural network models. Remember that L2 amounts to adding a penalty on the norm of the weights to the loss. In TensorFlow, you can compute the L2 loss for a tensor <code>t</code> using <code>nn.l2_loss(t)</code>. The right amount of regularization should improve your validation / test accuracy.</p>
+<hr>
 
 </div>
 </div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>Reshaping for LR function
-Fitting to function
-Predicting values for test set
-Mean squared error: 2.7373
-Variance score: 0.67
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[74]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">test_labels</span>
-<span class="n">y</span> <span class="o">=</span> <span class="n">predicted</span>
-<span class="n">heatmap</span><span class="p">,</span> <span class="n">xedges</span><span class="p">,</span> <span class="n">yedges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram2d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">))</span>
-
-<span class="c1"># Plot heatmap</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Results Heatmap&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Predicted&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Actual&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">heatmap</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;hot&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-
-
-<div class="output_png output_subarea ">
-<img src="data:image/png;base64,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
-"
->
-</div>
-
-</div>
-
-</div>
-</div>
-
 </div>
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>Common Mistakes: C and G, I and J, E and D, E and F</p>
+<hr>
+<h2 id="Problem-2">Problem 2<a class="anchor-link" href="#Problem-2">&#182;</a></h2><p>Let's demonstrate an extreme case of overfitting. Restrict your training data to just a few batches. What happens?</p>
+<hr>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr>
+<h2 id="Problem-3">Problem 3<a class="anchor-link" href="#Problem-3">&#182;</a></h2><p>Introduce Dropout on the hidden layer of the neural network. Remember: Dropout should only be introduced during training, not evaluation, otherwise your evaluation results would be stochastic as well. TensorFlow provides <code>nn.dropout()</code> for that, but you have to make sure it's only inserted during training.</p>
+<p>What happens to our extreme overfitting case?</p>
+<hr>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr>
+<h2 id="Problem-4">Problem 4<a class="anchor-link" href="#Problem-4">&#182;</a></h2><p>Try to get the best performance you can using a multi-layer model! The best reported test accuracy using a deep network is <a href="http://yaroslavvb.blogspot.com/2011/09/notmnist-dataset.html?showComment=1391023266211#c8758720086795711595">97.1%</a>.</p>
+<p>One avenue you can explore is to add multiple layers.</p>
+<p>Another one is to use learning rate decay:</p>
+
+<pre><code>global_step = tf.Variable(0)  # count the number of steps taken.
+learning_rate = tf.train.exponential_decay(0.5, global_step, ...)
+optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss, global_step=global_step)
+
+</code></pre>
+<hr>
 
 </div>
 </div>
