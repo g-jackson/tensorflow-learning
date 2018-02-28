@@ -11,7 +11,7 @@
 # 
 # The goal of this assignment is to progressively train deeper and more accurate models using TensorFlow.
 
-# In[6]:
+# In[1]:
 
 
 # These are all the modules we'll be using later. Make sure you can import them
@@ -25,7 +25,7 @@ from six.moves import range
 
 # First reload the data we generated in `1_notmnist.ipynb`.
 
-# In[7]:
+# In[2]:
 
 
 pickle_file = '../Assignment 1/notMNIST.pickle'
@@ -48,7 +48,7 @@ with open(pickle_file, 'rb') as f:
 # - data as a flat matrix,
 # - labels as float 1-hot encodings.
 
-# In[8]:
+# In[3]:
 
 
 image_size = 28
@@ -82,7 +82,7 @@ print('Test set', test_dataset.shape, test_labels.shape)
 # 
 # Let's load all the data into TensorFlow and build the computation graph corresponding to our training:
 
-# In[10]:
+# In[4]:
 
 
 # With gradient descent training, even this much data is prohibitive.
@@ -132,7 +132,7 @@ with graph.as_default():
 
 # Let's run this computation and iterate:
 
-# In[12]:
+# In[5]:
 
 
 num_steps = 2000
@@ -168,7 +168,7 @@ with tf.Session(graph=graph) as session:
 # 
 # The graph will be similar, except that instead of holding all the training data into a constant node, we create a `Placeholder` node which will be fed actual data at every call of `session.run()`.
 
-# In[13]:
+# In[6]:
 
 
 batch_size = 128
@@ -206,7 +206,7 @@ with graph.as_default():
 
 # Let's run it:
 
-# In[15]:
+# In[7]:
 
 
 num_steps = 5001
@@ -243,46 +243,52 @@ with tf.Session(graph=graph) as session:
 # 
 # ---
 
-# In[ ]:
+# In[19]:
 
 
 batch_size = 128
+hidden_units = 1024
 
 graph = tf.Graph()
-with graph.as_default():
 
+def model(X, w_h1, b1, w_h2, b2):
+  h = tf.nn.relu(tf.matmul(tf_train_dataset, w_h1) + b1)
+  return tf.matmul(h, w_h2) + b2
+
+with graph.as_default():
   # Input data. For the training data, we use a placeholder that will be fed
   # at run time with a training minibatch.
-  tf_train_dataset = tf.placeholder(tf.float32,
-                                    shape=(batch_size, image_size * image_size))
+  tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, image_size * image_size))
   tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_labels))
   tf_valid_dataset = tf.constant(valid_dataset)
-  tf_test_dataset = tf.constant(test_dataset)
+  tf_test_dataset = tf.constant(test_dataset)  
   
   # Variables.
-  weights = tf.Variable(
-    tf.truncated_normal([image_size * image_size, num_labels]))
-  biases = tf.Variable(tf.zeros([num_labels]))
+  w_h1 = tf.Variable(tf.truncated_normal([image_size * image_size, hidden_units]))
+  b1 = tf.Variable(tf.zeros([hidden_units]))
+  w_h2 = tf.Variable(tf.truncated_normal([hidden_units, num_labels]))
+  b2 = tf.Variable(tf.zeros([num_labels]))
+  #w_o = tf.Variable(tf.truncated_normal([hidden_units, num_labels]))
+  #b_o = tf.Variable(tf.zeros([num_labels]))
   
   # Training computation.
-  logits = tf.matmul(tf_train_dataset, weights) + biases
-  loss = tf.reduce_mean(
-    tf.nn.softmax_cross_entropy_with_logits(labels=tf_train_labels, logits=logits))
+  net = model(tf_train_dataset, w_h1, b1, w_h2, b2)
+  loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=tf_train_labels, logits=net))
   
   # Optimizer.
   optimizer = tf.train.GradientDescentOptimizer(0.5).minimize(loss)
   
   # Predictions for the training, validation, and test data.
-  train_prediction = tf.nn.softmax(logits)
-  valid_prediction = tf.nn.softmax(
-    tf.matmul(tf_valid_dataset, weights) + biases)
-  test_prediction = tf.nn.softmax(tf.matmul(tf_test_dataset, weights) + biases)
+  train_prediction = tf.nn.softmax(net)
+  valid_prediction = tf.nn.softmax(tf.matmul(tf.nn.relu(tf.matmul(tf_valid_dataset, w_h1) + b1), w_h2) + b2)
+  #valid_prediction = tf.nn.softmax(model(tf_valid_dataset, w_h1, b1, w_h2, b2))
+  test_prediction = tf.nn.softmax(tf.matmul(tf.nn.relu(tf.matmul(tf_test_dataset, w_h1) + b1), w_h2) + b2)
 
 
-# In[ ]:
+# In[20]:
 
 
-num_steps = 5001
+num_steps = 3001
 
 with tf.Session(graph=graph) as session:
   tf.global_variables_initializer().run()
@@ -303,7 +309,6 @@ with tf.Session(graph=graph) as session:
     if (step % 500 == 0):
       print("Minibatch loss at step %d: %f" % (step, l))
       print("Minibatch accuracy: %.1f%%" % accuracy(predictions, batch_labels))
-      print("Validation accuracy: %.1f%%" % accuracy(
-        valid_prediction.eval(), valid_labels))
+      print("Validation accuracy: %.1f%%" % accuracy(valid_prediction.eval(), valid_labels))
   print("Test accuracy: %.1f%%" % accuracy(test_prediction.eval(), test_labels))
 
