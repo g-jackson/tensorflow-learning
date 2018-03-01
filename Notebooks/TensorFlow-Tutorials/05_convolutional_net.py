@@ -1,15 +1,22 @@
-#!/usr/bin/env python
+
+# coding: utf-8
+
+# In[1]:
+
 
 import tensorflow as tf
 import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
+
+
+# In[ ]:
+
 
 batch_size = 128
 test_size = 256
 
 def init_weights(shape):
     return tf.Variable(tf.random_normal(shape, stddev=0.01))
-
 
 def model(X, w, w2, w3, w4, w_o, p_keep_conv, p_keep_hidden):
     l1a = tf.nn.relu(tf.nn.conv2d(X, w,                       # l1a shape=(?, 28, 28, 32)
@@ -42,6 +49,10 @@ trX, trY, teX, teY = mnist.train.images, mnist.train.labels, mnist.test.images, 
 trX = trX.reshape(-1, 28, 28, 1)  # 28x28x1 input img
 teX = teX.reshape(-1, 28, 28, 1)  # 28x28x1 input img
 
+
+# In[3]:
+
+
 X = tf.placeholder("float", [None, 28, 28, 1])
 Y = tf.placeholder("float", [None, 10])
 
@@ -58,6 +69,10 @@ py_x = model(X, w, w2, w3, w4, w_o, p_keep_conv, p_keep_hidden)
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=py_x, labels=Y))
 train_op = tf.train.RMSPropOptimizer(0.001, 0.9).minimize(cost)
 predict_op = tf.argmax(py_x, 1)
+
+
+# In[ ]:
+
 
 # Launch the graph in a session
 with tf.Session() as sess:
@@ -77,5 +92,7 @@ with tf.Session() as sess:
 
         print(i, np.mean(np.argmax(teY[test_indices], axis=1) ==
                          sess.run(predict_op, feed_dict={X: teX[test_indices],
+                                                         Y: teY[test_indices],
                                                          p_keep_conv: 1.0,
                                                          p_keep_hidden: 1.0})))
+
