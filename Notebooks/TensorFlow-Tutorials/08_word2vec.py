@@ -1,10 +1,19 @@
+
+# coding: utf-8
+
+# In[1]:
+
+
 # Inspired by https://www.tensorflow.org/versions/r0.7/tutorials/word2vec/index.html
 import collections
 import numpy as np
 import tensorflow as tf
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+get_ipython().run_line_magic('matplotlib', 'inline')
+
+
+# In[2]:
+
 
 # Configuration
 batch_size = 20
@@ -69,6 +78,10 @@ def generate_batch(size):
 # generate_batch test
 print ('Batches (x, y)', generate_batch(3))
 
+
+# In[6]:
+
+
 # Input data
 train_inputs = tf.placeholder(tf.int32, shape=[batch_size])
 # need to shape [batch_size, 1] for nn.nce_loss
@@ -90,9 +103,12 @@ nce_biases = tf.Variable(tf.zeros([voc_size]))
 #   tf.nn.nce_loss(weights, biases, inputs, labels, num_sampled, num_classes ...)
 # It automatically draws negative samples when we evaluate the loss.
 loss = tf.reduce_mean(tf.nn.nce_loss(nce_weights, nce_biases, train_labels, embed, num_sampled, voc_size))
-
 # Use the adam optimizer
 train_op = tf.train.AdamOptimizer(1e-1).minimize(loss)
+
+
+# In[7]:
+
 
 # Launch the graph in a session
 with tf.Session() as sess:
@@ -118,3 +134,4 @@ if trained_embeddings.shape[1] == 2:
         plt.annotate(label, xy=(x, y), xytext=(5, 2),
             textcoords='offset points', ha='right', va='bottom')
     plt.savefig("word2vec.png")
+

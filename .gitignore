@@ -1,4 +1,5 @@
 # Datasets
+*.zip
 *.tar.gz
 *.pickle
 notMNIST_large/
